@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>管理画面</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-page">
+  <header class="app-header">
+    <h1 id="app-title">管理画面</h1>
+    <button id="logout" class="btn small ghost" hidden>ログアウト</button>
+  </header>
+  <div id="mock-banner" class="mock-banner" hidden>デモモード：利用者画面と同じブラウザのデータを表示しています</div>
+
+  <main>
+    <section id="login" class="panel">
+      <h2>スタッフログイン</h2>
+      <form id="login-form">
+        <label class="field"><span>管理キー</span><input name="key" type="password" required autocomplete="current-password"></label>
+        <button class="btn primary block" type="submit">ログイン</button>
+      </form>
+      <p id="login-hint" class="demo-box" hidden>デモモードの管理キーは <b>admin</b> です</p>
+    </section>
+
+    <div id="admin" hidden>
+      <nav class="admin-tabs">
+        <button data-panel="tickets" class="active">呼び出し</button>
+        <button data-panel="stamps">スタンプ</button>
+        <button data-panel="surveys">集計</button>
+        <button data-panel="reservations">予約</button>
+        <button data-panel="rally">ラリーQR</button>
+      </nav>
+
+      <section data-panel="tickets" class="admin-panel"></section>
+
+      <section data-panel="stamps" class="admin-panel" hidden>
+        <div class="panel">
+          <h2>スタンプ付与・特典使用</h2>
+          <form id="member-form" class="inline-form">
+            <input name="memberNo" placeholder="会員番号（例: M12345678）" autocomplete="off" required>
+            <button class="btn primary" type="submit">検索</button>
+          </form>
+          <button class="btn ghost block" data-act="scan-member">カメラで会員証QRを読み取る</button>
+          <div id="reader" class="reader" hidden></div>
+        </div>
+        <div id="member-result"></div>
+      </section>
+
+      <section data-panel="surveys" class="admin-panel" hidden></section>
+      <section data-panel="reservations" class="admin-panel" hidden></section>
+      <section data-panel="rally" class="admin-panel" hidden></section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="loading" class="loading"><div class="spinner"></div></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
