@@ -6,5 +6,5 @@
  */
 window.APP_CONFIG = {
   LIFF_ID: '2011900624-jT8NGkeZ',   // 例: '2001234567-AbCdEfGh'
-  API_URL: 'https://arrqlbnxg7vc7hp2r3heq7k3r40rqzgm.lambda-url.us-east-1.on.aws/'    // 例: 'https://script.google.com/macros/s/xxxxxxxx/exec'
+  API_URL: 'https://hdxai43ioeltpkbddzujgbomea0fypoi.lambda-url.ap-northeast-1.on.aws/'    // AWS Lambda 関数URL（東京）
 };
