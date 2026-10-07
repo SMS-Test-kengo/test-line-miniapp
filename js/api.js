@@ -114,16 +114,25 @@
         var body = { action: action, payload: payload || {} };
         if (isAdmin) body.adminKey = this.adminKey; else body.idToken = Auth.idToken;
         var r;
-        try {
-          // text/plain にすると CORS のプリフライトが発生せず GAS で受け取れる
-          r = await fetch(cfg.API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(body)
-          });
-        } catch (e) {
-          throw new Error('通信できませんでした。電波の良い場所で再度お試しください');
+        // 混雑（429）や一時的な停止（503）のときは少し待って2回まで再試行する
+        for (var attempt = 0; ; attempt++) {
+          try {
+            // text/plain にすると CORS のプリフライトが発生しない（GAS / Lambda 関数URL 共通）
+            r = await fetch(cfg.API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(body)
+            });
+          } catch (e) {
+            throw new Error('通信できませんでした。電波の良い場所で再度お試しください');
+          }
+          if ((r.status === 429 || r.status === 503) && attempt < 2) {
+            await new Promise(function (resolve) { setTimeout(resolve, 700 * (attempt + 1)); });
+            continue;
+          }
+          break;
         }
+        if (r.status === 429) throw new Error('混み合っています。少し時間をおいてからお試しください');
         if (!r.ok) throw new Error('サーバーエラーが発生しました（' + r.status + '）');
         res = await r.json();
       }
