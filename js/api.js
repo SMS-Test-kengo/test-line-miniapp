@@ -36,16 +36,29 @@
     return mockReady;
   }
 
-  // LIFF SDK は async で読み込むので、使う直前に読み込み完了を待つ
+  // LIFF SDK は index.html で async 読み込みしているので、使う直前に読み込み完了を待つ。
+  // 読み込みに失敗・タイムアウトしたら1回だけ読み込み直す
+  var LIFF_SDK_URL = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
   function waitForLiffSdk() {
     if (typeof liff !== 'undefined') return Promise.resolve();
-    var el = document.getElementById('liff-sdk');
     return new Promise(function (resolve, reject) {
-      var fail = function () { reject(new Error('LIFF SDK を読み込めませんでした。通信環境を確認してください')); };
-      if (!el) { fail(); return; }
-      el.addEventListener('load', resolve);
-      el.addEventListener('error', fail);
-      setTimeout(function () { if (typeof liff === 'undefined') fail(); }, 20000);
+      var settled = false, retried = false;
+      function ok() {
+        if (!settled && typeof liff !== 'undefined') { settled = true; resolve(); }
+      }
+      function giveUp() {
+        if (!settled) { settled = true; reject(new Error('LIFF SDK を読み込めませんでした。通信環境を確認してください')); }
+      }
+      function retry() {
+        if (settled || retried) return;
+        retried = true;
+        loadScript(LIFF_SDK_URL + '?retry=' + Date.now()).then(function () { ok(); giveUp(); }, giveUp);
+      }
+      var el = document.getElementById('liff-sdk');
+      if (!el || global.__liffSdkError) { retry(); return; }
+      el.addEventListener('load', function () { ok(); retry(); });
+      el.addEventListener('error', retry);
+      setTimeout(retry, 15000);
     });
   }
 
