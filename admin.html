@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>管理画面</title>
-  <link rel="stylesheet" href="css/style.css?v=20261007">
+  <link rel="stylesheet" href="css/style.css?v=20261008">
 </head>
 <body class="admin-page">
   <header class="app-header">
@@ -32,6 +32,7 @@
         <button data-panel="reservations">予約</button>
         <button data-panel="rally">ラリーQR</button>
         <button data-panel="guide">案内QR</button>
+        <button data-panel="master">会員マスタ</button>
       </nav>
 
       <section data-panel="tickets" class="admin-panel"></section>
@@ -53,6 +54,17 @@
       <section data-panel="reservations" class="admin-panel" hidden></section>
       <section data-panel="rally" class="admin-panel" hidden></section>
       <section data-panel="guide" class="admin-panel" hidden></section>
+
+      <section data-panel="master" class="admin-panel" hidden>
+        <div class="panel">
+          <div class="panel-head"><h2>外部ID連携の会員マスタ</h2><span class="pill" id="master-count">－ 件</span></div>
+          <p class="muted">「会員番号,確認キー,氏名」の形で1行に1人ずつ貼り付けて登録します（Excel から CSV をコピーしても可）。同じ会員番号は上書きされます。1行目が見出しの場合は自動で読み飛ばします。</p>
+          <form id="master-form">
+            <textarea name="csv" rows="8" placeholder="100001,19900101,山田 太郎&#10;100002,20000505,佐藤 花子"></textarea>
+            <button class="btn primary block" type="submit">登録する</button>
+          </form>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -60,9 +72,9 @@
   <div id="loading" class="loading"><div class="spinner"></div></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/config.js?v=20261007"></script>
-  <script src="js/ui.js?v=20261007"></script>
-  <script src="js/api.js?v=20261007"></script>
-  <script src="js/admin.js?v=20261007"></script>
+  <script src="js/config.js?v=20261008"></script>
+  <script src="js/ui.js?v=20261008"></script>
+  <script src="js/api.js?v=20261008"></script>
+  <script src="js/admin.js?v=20261008"></script>
 </body>
 </html>
