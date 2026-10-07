@@ -355,7 +355,8 @@
   var polling = false;
   async function poll() {
     if (document.hidden || polling || !isReady) return;
-    if (!(app.tab === 'card' || app.tab === 'reception' || app.state.ticket.mine)) return;
+    // サーバーの無料枠を節約するため、受付タブ表示中か整理券を持っているときだけ更新する
+    if (!(app.tab === 'reception' || app.state.ticket.mine)) return;
     polling = true;
     try {
       var prev = app.state.ticket.mine;

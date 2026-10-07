@@ -68,6 +68,41 @@
     if (name === 'surveys') return loadSurveys();
     if (name === 'reservations') return loadReservations();
     if (name === 'rally') return loadRally();
+    if (name === 'guide') return renderGuide();
+    if (name === 'master') return loadMaster();
+  }
+
+  // ---------------- 会員マスタ（外部ID連携） ----------------
+
+  async function loadMaster() {
+    var data = await run('adminExtMasterInfo');
+    if (data) $('#master-count').textContent = data.count + ' 件';
+  }
+
+  /** 「会員番号,確認キー,氏名」の行を読み取る（タブ区切り・ダブルクォートにも対応） */
+  function parseMasterCsv(textValue) {
+    var rows = [];
+    String(textValue || '').split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var cells = line.split(line.indexOf('\t') >= 0 ? '\t' : ',').map(function (c) {
+        return c.trim().replace(/^"(.*)"$/, '$1').replace(/""/g, '"');
+      });
+      rows.push({ extId: cells[0] || '', key: cells[1] || '', name: cells.slice(2).join(',') });
+    });
+    // 1行目が見出し（数字や英数字のIDでない）なら読み飛ばす
+    if (rows.length && /会員|extId|番号|ID/i.test(rows[0].extId) && /キー|key|生年月日/i.test(rows[0].key)) rows.shift();
+    return rows;
+  }
+
+  async function importMaster(form) {
+    var rows = parseMasterCsv(form.csv.value);
+    if (!rows.length) { UI.toast('登録するデータを貼り付けてください', 'error'); return; }
+    if (!confirm(rows.length + ' 件を登録します。よろしいですか？')) return;
+    var data = await run('adminExtMasterImport', { rows: rows });
+    if (data) {
+      form.csv.value = '';
+      $('#master-count').textContent = data.count + ' 件';
+    }
   }
 
   // ---------------- 呼び出し ----------------
@@ -223,6 +258,50 @@
     p.querySelectorAll('.qr-box').forEach(function (el) { UI.qr(el, rallyUrl(el.dataset.code), 180); });
   }
 
+  // ---------------- 案内QR（公式アカウントを使わない集客用） ----------------
+
+  var GUIDE_TARGETS = [
+    { tab: '', title: 'ミニアプリを開く', text: 'LINEのカメラで読み取ってください' },
+    { tab: 'card', title: '会員証・スタンプカード', text: '会員証を表示してスタンプを集めよう' },
+    { tab: 'reception', title: '受付・整理券', text: '整理券の発行・予約はこちら' },
+    { tab: 'vote', title: '投票・アンケート', text: 'あなたの声を聞かせてください' },
+    { tab: 'rally', title: 'スタンプラリー', text: '会場のQRを集めて特典をゲット' }
+  ];
+
+  function appUrl(tab) {
+    if (!cfg.LIFF_ID) return '';
+    return 'https://miniapp.line.me/' + cfg.LIFF_ID + (tab ? '?tab=' + tab : '');
+  }
+
+  function renderGuide() {
+    var p = panel('guide');
+    if (!cfg.LIFF_ID) {
+      p.innerHTML = '<div class="panel"><p class="muted">js/config.js に LIFF_ID を設定すると、案内用のQRコードを作成できます。</p></div>';
+      return;
+    }
+    p.innerHTML =
+      '<div class="panel no-print"><h2>案内用QRコード</h2>' +
+        '<p class="muted">ポスター・チラシ・受付などに掲示してください。URLはLINEグループ、メール、Webサイト、SNSにも貼れます。<br>' +
+        '※ 開発中のチャネルでは、権限のあるLINEアカウントしか開けません。一般公開後、本番用のLIFF IDに切り替えてから印刷してください。</p>' +
+        '<button class="btn primary block" data-act="print">印刷する</button></div>' +
+      '<div class="qr-sheet">' + GUIDE_TARGETS.map(function (g) {
+        var url = appUrl(g.tab);
+        return '<div class="qr-card"><h3>' + esc(g.title) + '</h3><div class="qr-box" data-url="' + esc(url) + '"></div>' +
+          '<p>' + esc(g.text) + '</p><small>' + esc(url) + '</small>' +
+          '<button class="btn small ghost block no-print" data-act="copy-url" data-url="' + esc(url) + '">URLをコピー</button></div>';
+      }).join('') + '</div>';
+    p.querySelectorAll('.qr-box').forEach(function (el) { UI.qr(el, el.dataset.url, 180); });
+  }
+
+  async function copyUrl(url) {
+    try {
+      await navigator.clipboard.writeText(url);
+      UI.toast('URLをコピーしました', 'ok');
+    } catch (e) {
+      window.prompt('このURLをコピーしてください', url);
+    }
+  }
+
   // ---------------- イベント ----------------
 
   document.addEventListener('click', function (ev) {
@@ -242,12 +321,17 @@
         if (confirm('特典を1回使用済みにしますか？')) memberOp('adminUseReward', {}, el);
         break;
       case 'print': window.print(); break;
+      case 'copy-url': copyUrl(el.dataset.url); break;
     }
   });
 
   $('#login-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
     login(ev.target.key.value);
+  });
+  $('#master-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    importMaster(ev.target);
   });
   $('#member-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
