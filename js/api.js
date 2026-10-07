@@ -8,6 +8,12 @@
   var cfg = global.APP_CONFIG || {};
   var params = new URLSearchParams(location.search);
 
+  // 起動時間の計測（?debug=1 で画面に表示）
+  var Perf = {
+    marks: {},
+    mark: function (name) { this.marks[name] = Math.round(performance.now()); }
+  };
+
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
       var s = document.createElement('script');
@@ -30,6 +36,19 @@
     return mockReady;
   }
 
+  // LIFF SDK は async で読み込むので、使う直前に読み込み完了を待つ
+  function waitForLiffSdk() {
+    if (typeof liff !== 'undefined') return Promise.resolve();
+    var el = document.getElementById('liff-sdk');
+    return new Promise(function (resolve, reject) {
+      var fail = function () { reject(new Error('LIFF SDK を読み込めませんでした。通信環境を確認してください')); };
+      if (!el) { fail(); return; }
+      el.addEventListener('load', resolve);
+      el.addEventListener('error', fail);
+      setTimeout(function () { if (typeof liff === 'undefined') fail(); }, 20000);
+    });
+  }
+
   var Auth = {
     mock: !cfg.LIFF_ID || params.get('mock') === '1',
     profile: null,
@@ -43,14 +62,19 @@
         await ensureMock();
         return this.profile;
       }
-      if (typeof liff === 'undefined') throw new Error('LIFF SDK を読み込めませんでした。通信環境を確認してください');
+      await waitForLiffSdk();
+      Perf.mark('SDK読み込み完了');
       await liff.init({ liffId: cfg.LIFF_ID, withLoginOnExternalBrowser: true });
+      Perf.mark('LINEログイン完了');
       if (!liff.isLoggedIn()) {
         liff.login({ redirectUri: location.href });
         return null;
       }
       this.idToken = liff.getIDToken();
-      this.profile = await liff.getProfile();
+      if (!this.idToken) throw new Error('ログイン情報を取得できませんでした（チャネルの Scope で openid を有効にしてください）');
+      // getProfile() の通信を省き、IDトークンの中身（ユーザーID・名前・アイコン）を使う
+      var t = liff.getDecodedIDToken() || {};
+      this.profile = { userId: t.sub, displayName: t.name || '', pictureUrl: t.picture || '' };
       return this.profile;
     },
 
@@ -104,6 +128,12 @@
     }
   };
 
+  // GAS は休止状態からの起動に時間がかかるため、ログイン処理と並行して軽いリクエストで起こしておく
+  if (!Auth.mock && cfg.API_URL) {
+    try { fetch(cfg.API_URL, { mode: 'no-cors', cache: 'no-store' }).catch(function () {}); } catch (e) { /* ignore */ }
+  }
+
   global.Auth = Auth;
   global.Api = Api;
+  global.Perf = Perf;
 })(window);

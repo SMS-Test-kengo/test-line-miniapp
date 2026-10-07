@@ -16,14 +16,43 @@
 
   function $(sel) { return document.querySelector(sel); }
 
+  // ログインと最新データの取得が終わったら解決する（それまでの操作は待たせる）
+  var isReady = false;
+  var markReady;
+  var ready = new Promise(function (resolve) { markReady = resolve; });
+
+  // ---------------- 前回データのキャッシュ（2回目以降の即時表示用） ----------------
+
+  var CACHE_KEY = 'miniapp_cache_v1:' + (Auth.mock ? 'demo' : cfg.LIFF_ID);
+
+  function loadCache() {
+    try {
+      var c = JSON.parse(localStorage.getItem(CACHE_KEY));
+      return c && c.config && c.state ? c : null;
+    } catch (e) { return null; }
+  }
+
+  function saveCache() {
+    if (!Auth.profile || !app.state) return;
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ userId: Auth.profile.userId, config: app.config, state: app.state }));
+    } catch (e) { /* 保存できなくても動作に影響なし */ }
+  }
+
+  function setState(state) {
+    app.state = state;
+    saveCache();
+  }
+
   // ---------------- 共通 ----------------
 
   /** API を呼び、成功したら状態を更新して再描画する。失敗時はトーストを出して null を返す */
   async function run(action, payload) {
     UI.busy(true);
     try {
+      await ready;
       var data = await Api.call(action, payload);
-      if (data.state) { app.state = data.state; renderAll(); }
+      if (data.state) { setState(data.state); renderAll(); }
       if (data.message) UI.toast(data.message, 'ok');
       return data;
     } catch (e) {
@@ -325,13 +354,13 @@
 
   var polling = false;
   async function poll() {
-    if (document.hidden || polling || !app.state) return;
+    if (document.hidden || polling || !isReady) return;
     if (!(app.tab === 'card' || app.tab === 'reception' || app.state.ticket.mine)) return;
     polling = true;
     try {
       var prev = app.state.ticket.mine;
       var data = await Api.call('state', {});
-      app.state = data.state;
+      setState(data.state);
       // 入力フォームを含む画面は書き換えない
       renderCard();
       renderTicket();
@@ -391,27 +420,68 @@
 
   // ---------------- 起動 ----------------
 
+  function showApp() {
+    document.title = app.config.appName;
+    $('#app-title').textContent = app.config.appName;
+    $('.tabbar').hidden = false;
+    renderAll();
+  }
+
+  /** ?tab=reception などで開くタブを指定（リッチメニューからのリンク用） */
+  function initialTab() {
+    var params = new URLSearchParams(location.search);
+    var saved = null;
+    try { saved = sessionStorage.getItem('tab'); } catch (e) { /* ignore */ }
+    switchTab(params.get('tab') || saved || 'card');
+  }
+
+  /** ?debug=1 のとき、ページ表示開始からの経過時間（ミリ秒）を画面右上に出す */
+  function showPerf() {
+    if (new URLSearchParams(location.search).get('debug') !== '1') return;
+    var lines = Object.keys(Perf.marks).map(function (k) { return k + '  ' + Perf.marks[k] + ' ms'; });
+    var box = document.createElement('div');
+    box.className = 'perf-box';
+    box.textContent = '起動時間（ページ表示開始から）\n' + lines.join('\n');
+    box.addEventListener('click', function () { box.remove(); });
+    document.body.appendChild(box);
+  }
+
   async function start() {
-    UI.busy(true);
+    // 前回のデータがあれば、ログインや通信を待たずにすぐ表示する
+    var cached = loadCache();
+    if (cached) {
+      app.config = cached.config;
+      app.state = cached.state;
+      showApp();
+      initialTab();
+      Perf.mark('前回データで表示');
+    }
+    // 初回は index.html の骨組みを表示したまま、ヘッダーのバーで読み込み中を示す
+    $('.app-header').classList.add('syncing');
+
     try {
       var profile = await Auth.init();
       if (!profile) return; // LINE ログイン画面へ移動中
       if (Auth.mock) $('#mock-banner').hidden = false;
       if (profile.pictureUrl) { $('#avatar').src = profile.pictureUrl; $('#avatar').hidden = false; }
+      if (cached && cached.userId !== profile.userId) cached = null; // 別アカウントのデータは使わない
 
       var data = await Api.call('init', {});
+      Perf.mark('サーバー応答');
+      var changed = !cached ||
+        JSON.stringify(cached.config) !== JSON.stringify(data.config) ||
+        JSON.stringify(cached.state) !== JSON.stringify(data.state);
       app.config = data.config;
-      app.state = data.state;
-      document.title = app.config.appName;
-      $('#app-title').textContent = app.config.appName;
-      $('.tabbar').hidden = false;
-      renderAll();
+      setState(data.state);
+      if (changed) showApp(); // 変化がなければ書き換えない（入力中のフォームを消さない）
 
-      // ?tab=reception などで開くタブを指定（リッチメニューからのリンク用）
+      // LIFF のリダイレクト後に ?tab= が付くことがあるので、ここで改めてタブを決める
       var params = new URLSearchParams(location.search);
-      var saved = null;
-      try { saved = sessionStorage.getItem('tab'); } catch (e) { /* ignore */ }
-      switchTab(params.get('tab') || saved || 'card');
+      if (!cached || params.get('tab')) initialTab();
+
+      isReady = true;
+      markReady();
+      showPerf();
 
       // ?rally=コード で開かれたら自動でスタンプ獲得（LINEのカメラでQRを読んだ場合）
       var rally = params.get('rally');
@@ -430,6 +500,7 @@
       showFatal(e.message || String(e), true);
     } finally {
       UI.busy(false);
+      $('.app-header').classList.remove('syncing');
     }
   }
 
