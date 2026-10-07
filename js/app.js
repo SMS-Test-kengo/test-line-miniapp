@@ -475,6 +475,8 @@
       app.config = data.config;
       setState(data.state);
       if (changed) showApp(); // 変化がなければ書き換えない（入力中のフォームを消さない）
+      // 前回データでの表示は LIFF の準備前なので「友だちに紹介」ボタンが出ていない。会員証は入力欄がないので必ず描き直す
+      else renderCard();
 
       // LIFF のリダイレクト後に ?tab= が付くことがあるので、ここで改めてタブを決める
       var params = new URLSearchParams(location.search);
