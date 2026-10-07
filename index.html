@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#06C755">
   <title>ミニアプリ</title>
+  <link rel="preconnect" href="https://static.line-scdn.net">
+  <link rel="preconnect" href="https://script.google.com">
+  <link rel="preconnect" href="https://script.googleusercontent.com">
+  <link rel="preconnect" href="https://api.line.me">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -15,7 +19,21 @@
   <div id="mock-banner" class="mock-banner" hidden>デモモード：LINEログインなしで動作中（データはこの端末内だけに保存されます）</div>
 
   <main id="main">
-    <section id="tab-card" class="tab" data-tab="card"></section>
+    <section id="tab-card" class="tab" data-tab="card">
+      <!-- 初回の読み込み中に表示する骨組み（app.js が本来の内容で置き換えます） -->
+      <div class="skeleton" role="status" aria-label="読み込み中">
+        <div class="sk sk-card"></div>
+        <div class="sk sk-line"></div>
+        <div class="panel">
+          <div class="sk sk-title"></div>
+          <div class="stamp-grid">
+            <div class="sk sk-dot"></div><div class="sk sk-dot"></div><div class="sk sk-dot"></div><div class="sk sk-dot"></div><div class="sk sk-dot"></div>
+            <div class="sk sk-dot"></div><div class="sk sk-dot"></div><div class="sk sk-dot"></div><div class="sk sk-dot"></div><div class="sk sk-dot"></div>
+          </div>
+          <div class="sk sk-line short"></div>
+        </div>
+      </div>
+    </section>
     <section id="tab-rally" class="tab" data-tab="rally" hidden></section>
     <section id="tab-vote" class="tab" data-tab="vote" hidden></section>
     <section id="tab-reception" class="tab" data-tab="reception" hidden>
@@ -51,7 +69,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="loading" class="loading"><div class="spinner"></div></div>
 
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script id="liff-sdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js" async></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
