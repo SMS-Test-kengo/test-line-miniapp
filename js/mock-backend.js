@@ -58,7 +58,10 @@ function createMockBackend() {
         },
         put: function (k, v, sec) { data.cache[k] = { v: String(v), exp: Date.now() + sec * 1000 }; }
       },
-      notify: function (userId, text) { console.info('[デモ] プッシュ通知 → ' + userId + ': ' + text); },
+      notify: function (userId, text) {
+        data.notified = (data.notified || 0) + 1;
+        console.info('[デモ] プッシュ通知 → ' + userId + ': ' + text);
+      },
       log: function (e) { console.error(e); }
     };
   }
@@ -79,7 +82,12 @@ function createMockBackend() {
             c.displayName = ctx.displayName;
           }
           var data = load();
+          data.notified = 0;
           var res = createCore(createEnv(data)).handle(action, payload, c);
+          if (data.notified && res.ok && res.data && typeof res.data.message === 'string') {
+            res.data.message += '（デモのため LINE 通知は送信しません）';
+          }
+          delete data.notified;
           save(data);
           resolve(JSON.parse(JSON.stringify(res)));
         }, 200);

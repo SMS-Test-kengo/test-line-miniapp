@@ -301,7 +301,36 @@
           : '<p class="muted center">現在、整理券の発行を停止しています</p>') +
       '</div>';
     }
-    $('#ticket-panel').innerHTML = html;
+    $('#ticket-panel').innerHTML = html + friendNotice();
+  }
+
+  // ---------------- 呼び出し通知のための友だち追加案内 ----------------
+  // 呼び出しの LINE 通知は公式アカウントから送るため、友だち追加している人にしか届かない
+
+  function friendNotice() {
+    if (!cfg.OA_BASIC_ID || app.friend === true) return '';
+    var url = 'https://line.me/R/ti/p/' + encodeURIComponent(cfg.OA_BASIC_ID);
+    return '<div class="panel notice">' +
+      '<h2>呼び出しをLINEで受け取る</h2>' +
+      '<p class="muted">公式アカウントを友だち追加すると、呼び出しのときにLINEでお知らせが届きます。' +
+      '友だち追加しなくても、この画面を開いていれば呼び出しを確認できます。</p>' +
+      '<a class="btn primary block" href="' + esc(url) + '">公式アカウントを友だち追加する</a>' +
+      '</div>';
+  }
+
+  /** 公式アカウントを友だち追加済みか確認する（ミニアプリと公式アカウントが連携されている場合のみ分かる） */
+  async function checkFriendship() {
+    if (!cfg.OA_BASIC_ID || !Auth.inClient() || !liff.getFriendship) return;
+    try {
+      var r = await liff.getFriendship();
+      var friend = !!(r && r.friendFlag);
+      if (friend !== app.friend) {
+        app.friend = friend;
+        renderTicket();
+      }
+    } catch (e) {
+      /* 連携されていない場合などは分からないので、案内を出したままにする */
+    }
   }
 
   // ---------------- 予約 ----------------
@@ -555,6 +584,7 @@
       isReady = true;
       markReady();
       showPerf();
+      checkFriendship();
 
       // ?rally=コード で開かれたら自動でスタンプ獲得（LINEのカメラでQRを読んだ場合）
       var rally = params.get('rally');
@@ -568,7 +598,11 @@
       }
 
       setInterval(poll, POLL_MS);
-      document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) return;
+        poll();
+        checkFriendship(); // 友だち追加して戻ってきたら案内を消す
+      });
     } catch (e) {
       showFatal(e.message || String(e), true);
     } finally {
