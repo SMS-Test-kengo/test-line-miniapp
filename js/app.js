@@ -401,6 +401,11 @@
       case 'unlink':
         if (confirm('連携を解除しますか？')) run('unlinkExternal');
         break;
+      case 'perm-continue': location.reload(); break;
+      case 'perm-retry':
+        sessionRemove(PERM_REQUESTED_KEY); // もう一度 LINE の許可画面を出す
+        location.reload();
+        break;
     }
   });
 
@@ -447,25 +452,92 @@
     document.body.appendChild(box);
   }
 
-  async function start() {
-    // 前回のデータがあれば、ログインや通信を待たずにすぐ表示する
-    var cached = loadCache();
-    if (cached) {
-      app.config = cached.config;
-      app.state = cached.state;
-      showApp();
-      initialTab();
-      Perf.mark('前回データで表示');
+  // ---------------- LINE の権限（アクセス許可要求画面） ----------------
+  // チャネル同意の簡略化により、最初はユーザーIDの権限だけで起動する。
+  // プロフィール情報（必須）とトークルームへのメッセージ送信の許可を、起動時に LINE の画面で確認する。
+  // 許可すると以前の IDトークンは無効になるので、許可後はアプリを読み込み直す。
+
+  var PERMS = ['profile', 'chat_message.write'];
+  var PERM_REQUESTED_KEY = 'miniapp_perm_requested';
+  var permWaiting = false;
+
+  function sessionGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+  function sessionSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+  function sessionRemove(k) { try { sessionStorage.removeItem(k); } catch (e) { /* ignore */ } }
+
+  /** 必要な権限がそろっていれば true。足りなければ許可画面を出して false */
+  async function ensurePermissions() {
+    if (!Auth.inClient()) return true; // デモモード・外部ブラウザは LINE ログイン時に同意済み
+    var st = await Auth.permissionStates(PERMS);
+    var pending = PERMS.filter(function (p) { return st[p] === 'prompt'; });
+    if (!pending.length) { sessionRemove(PERM_REQUESTED_KEY); return true; }
+
+    if (!sessionGet(PERM_REQUESTED_KEY)) {
+      // この起動ではまだ許可画面を出していない → LINE のアクセス許可要求画面を表示
+      sessionSet(PERM_REQUESTED_KEY, '1');
+      try {
+        await liff.permission.requestAll();
+      } catch (e) {
+        // すでに許可済み・機能が無効などで表示できない場合は、プロフィールさえ許可されていれば続ける
+        if (st.profile !== 'prompt') return true;
+      }
+      showPermissionGate(true);
+      return false;
     }
-    // 初回は index.html の骨組みを表示したまま、ヘッダーのバーで読み込み中を示す
+    // 一度許可画面を出したあと：プロフィールが許可されていれば、メッセージ送信は任意として続ける
+    if (st.profile !== 'prompt') return true;
+    showPermissionGate(false);
+    return false;
+  }
+
+  function showPermissionGate(waiting) {
+    permWaiting = waiting;
+    var list = '<ul class="perm-list">' +
+      '<li><b>メインプロフィール情報（必須）</b><span>会員証にLINEの表示名とアイコンを表示します</span></li>' +
+      '<li><b>トークルームへのメッセージ送信（任意）</b><span>オフにしてもミニアプリは使えます</span></li></ul>';
+    $('#main').innerHTML = '<div class="panel perm">' + (waiting
+      ? '<h2>LINEの許可画面を確認してください</h2>' +
+        '<p class="muted">LINEのアクセス許可画面で内容を確認し、「許可する」を押してください。許可が終わったら「続ける」を押してください。</p>' +
+        list + '<button class="btn primary block" data-act="perm-continue">続ける</button>'
+      : '<h2>プロフィール情報の許可が必要です</h2>' +
+        '<p class="muted">このミニアプリを使うには、LINEのプロフィール情報の許可が必要です。</p>' +
+        list + '<button class="btn primary block" data-act="perm-retry">許可する</button>') +
+      '</div>';
+    $('.tabbar').hidden = true;
+  }
+
+  /** LINE の許可画面から戻ってきたら、許可状況を確かめて読み込み直す */
+  async function checkPermissionsAfterReturn() {
+    if (!permWaiting || document.hidden) return;
+    var st = await Auth.permissionStates(PERMS);
+    if (st.profile !== 'prompt') location.reload();
+  }
+
+  async function start() {
+    // 認証が終わるまでは index.html の骨組みを表示し、ヘッダーのバーで読み込み中を示す
     $('.app-header').classList.add('syncing');
 
     try {
       var profile = await Auth.init();
       if (!profile) return; // LINE ログイン画面へ移動中
+      if (!(await ensurePermissions())) {
+        document.addEventListener('visibilitychange', checkPermissionsAfterReturn);
+        return; // LINE の許可画面の結果を待つ
+      }
       if (Auth.mock) $('#mock-banner').hidden = false;
       if (profile.pictureUrl) { $('#avatar').src = profile.pictureUrl; $('#avatar').hidden = false; }
-      if (cached && cached.userId !== profile.userId) cached = null; // 別アカウントのデータは使わない
+
+      // LINE ログインと権限の確認が済んでから、同じ人の前回データだけを即表示する
+      var cached = loadCache();
+      if (cached && cached.userId === profile.userId) {
+        app.config = cached.config;
+        app.state = cached.state;
+        showApp();
+        initialTab();
+        Perf.mark('前回データで表示');
+      } else {
+        cached = null;
+      }
 
       var data = await Api.call('init', {});
       Perf.mark('サーバー応答');
@@ -475,8 +547,6 @@
       app.config = data.config;
       setState(data.state);
       if (changed) showApp(); // 変化がなければ書き換えない（入力中のフォームを消さない）
-      // 前回データでの表示は LIFF の準備前なので「友だちに紹介」ボタンが出ていない。会員証は入力欄がないので必ず描き直す
-      else renderCard();
 
       // LIFF のリダイレクト後に ?tab= が付くことがあるので、ここで改めてタブを決める
       var params = new URLSearchParams(location.search);

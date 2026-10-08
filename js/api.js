@@ -91,6 +91,24 @@
       return this.profile;
     },
 
+    /** LINE アプリ内（LIFF ブラウザ）で開かれているか（デモモードでは false） */
+    inClient: function () {
+      return !this.mock && typeof liff !== 'undefined' && !!liff.isInClient && liff.isInClient();
+    },
+
+    /** 権限ごとの許可状況（granted / prompt / unavailable）を返す */
+    permissionStates: async function (perms) {
+      var out = {};
+      for (var i = 0; i < perms.length; i++) {
+        try {
+          out[perms[i]] = (await liff.permission.query(perms[i])).state;
+        } catch (e) {
+          out[perms[i]] = 'unavailable';
+        }
+      }
+      return out;
+    },
+
     /** LIFF の API がこの環境で使えるか（デモモードでは常に false） */
     can: function (api) {
       return !this.mock && typeof liff !== 'undefined' && liff.isApiAvailable && liff.isApiAvailable(api);
