@@ -358,11 +358,37 @@
         '<p class="muted">各スポットに掲示するQRコードです。印刷して設置してください。' +
         (cfg.LIFF_ID ? '' : '<br>※ LIFF ID 未設定のためコード文字列のみのQRです（本番では LIFF ID 設定後に印刷してください）') + '</p>' +
         '<button class="btn primary block" data-act="print">印刷する</button></div>' +
+      '<div class="panel no-print"><div class="panel-head"><h2>スポットの位置</h2><span class="pill">判定の半径 ' + data.radiusMeters + 'm</span></div>' +
+        '<p class="muted">QRコードを読み取った人の現在地が、スポットから半径 ' + data.radiusMeters + 'm 以内のときだけスタンプが付きます。' +
+        '座標は settings.js の各スポットの lat（緯度）・lng（経度）で設定します。設置場所で「現在地を取得」を押すと、その場所の座標を調べられます。</p>' +
+        '<div class="table-wrap"><table class="table"><thead><tr><th>スポット</th><th>緯度</th><th>経度</th><th></th></tr></thead><tbody>' +
+        data.checkpoints.map(function (c) {
+          var has = c.lat != null && c.lng != null;
+          return '<tr><td>' + esc(c.name) + '</td><td class="mono">' + (has ? c.lat : '－') + '</td><td class="mono">' + (has ? c.lng : '－') + '</td>' +
+            '<td>' + (has ? '<a class="btn small ghost" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + c.lat + ',' + c.lng + '">地図</a>'
+              : '<span class="muted">距離を確認しない</span>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<button class="btn ghost block" data-act="get-location">現在地を取得</button>' +
+        '<p id="here" class="mono here"></p>' +
+      '</div>' +
       '<div class="qr-sheet">' + data.checkpoints.map(function (c) {
         return '<div class="qr-card"><h3>' + esc(c.name) + '</h3><div class="qr-box" data-code="' + esc(c.code) + '"></div>' +
-          '<p>LINEのカメラで読み取ってスタンプをゲット！</p><small>' + esc(c.code) + '</small></div>';
+          '<p>スポットの近くで、LINEのカメラで読み取ってスタンプをゲット！</p><small>' + esc(c.code) + '</small></div>';
       }).join('') + '</div>';
     p.querySelectorAll('.qr-box').forEach(function (el) { UI.qr(el, rallyUrl(el.dataset.code), 180); });
+  }
+
+  /** 設置場所の座標を調べる（settings.js の lat / lng に貼り付ける用） */
+  function showHere() {
+    var out = $('#here');
+    if (!navigator.geolocation) { out.textContent = 'このブラウザでは位置情報を使えません'; return; }
+    out.textContent = '現在地を取得しています…';
+    navigator.geolocation.getCurrentPosition(function (p) {
+      var lat = p.coords.latitude.toFixed(6), lng = p.coords.longitude.toFixed(6);
+      out.textContent = 'lat: ' + lat + ', lng: ' + lng + '（誤差 約' + Math.round(p.coords.accuracy) + 'm）';
+    }, function (err) {
+      out.textContent = err && err.code === 1 ? '位置情報の利用が許可されていません' : '現在地を取得できませんでした';
+    }, { enableHighAccuracy: true, timeout: 15000 });
   }
 
   // ---------------- 案内QR（公式アカウントを使わない集客用） ----------------
@@ -434,6 +460,7 @@
         if (confirm('特典を1回使用済みにしますか？')) memberOp('adminUseReward', {}, el);
         break;
       case 'print': window.print(); break;
+      case 'get-location': showHere(); break;
       case 'copy-url': copyUrl(el.dataset.url); break;
     }
   });

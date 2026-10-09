@@ -163,9 +163,16 @@
 
     var demo = '';
     if (Auth.mock && window.APP_SETTINGS) {
-      demo = '<div class="demo-box"><p>デモ：QRコードを読み取ったことにする</p>' +
+      // デモでは現在地の代わりに、スポットの座標（範囲内）または約1.1km離れた座標（範囲外）を送る
+      demo = '<div class="demo-box"><p>デモ：スポットの近くでQRコードを読み取ったことにする</p>' +
         APP_SETTINGS.rally.checkpoints.map(function (c) {
-          return '<button class="btn small" data-act="demo-rally" data-code="' + esc(c.code) + '">' + esc(c.name) + '</button>';
+          return '<button class="btn small" data-act="demo-rally" data-code="' + esc(c.code) + '" data-lat="' + esc(c.lat) +
+            '" data-lng="' + esc(c.lng) + '">' + esc(c.name) + '</button>';
+        }).join('') +
+        '<p>デモ：スポットから離れた場所で読み取ったことにする（獲得できない例）</p>' +
+        APP_SETTINGS.rally.checkpoints.slice(0, 1).map(function (c) {
+          return '<button class="btn small" data-act="demo-rally" data-code="' + esc(c.code) + '" data-lat="' + esc(Number(c.lat) + 0.01) +
+            '" data-lng="' + esc(c.lng) + '">' + esc(c.name) + '（範囲外）</button>';
         }).join('') + '</div>';
     }
 
@@ -177,6 +184,7 @@
         '<div class="panel-head"><h2>' + esc(rc.title) + '</h2><span class="pill">' + count + ' / ' + total + '</span></div>' +
         '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + count + '"><i style="width:' + pct + '%"></i></div>' +
         '<p class="muted">各スポットのQRコードを読み取ってスタンプを集めよう。全部集めると「' + esc(rc.rewardName) + '」がもらえます。</p>' +
+        '<p class="note">スタンプは、スポットの近く（半径' + rallyRadiusLabel(rc.radiusMeters) + '以内）で読み取ったときだけ獲得できます。読み取るときに位置情報の利用を許可してください。</p>' +
         '<ul class="cp-list">' + list + '</ul>' +
         '<button class="btn primary block" data-act="scan-rally">QRコードを読み取る</button>' +
       '</div>' + demo;
@@ -210,7 +218,46 @@
     } else {
       text = window.prompt('この環境ではカメラで読み取れません。\nQRコードの文字列を入力してください');
     }
-    if (text) await run('rallyCheckin', { code: extractRallyCode(text) });
+    if (text) await rallyCheckinHere(extractRallyCode(text));
+  }
+
+  function rallyRadiusLabel(m) {
+    m = Number(m) || 100;
+    return m >= 1000 ? (Math.round(m / 100) / 10) + 'km' : m + 'm';
+  }
+
+  /** 端末の現在地を取得する（スタンプラリーの距離判定用） */
+  function getCurrentLocation() {
+    return new Promise(function (resolve, reject) {
+      if (!navigator.geolocation) {
+        reject(new Error('この端末では位置情報を使えないため、スタンプを獲得できません'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(function (p) {
+        resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy) });
+      }, function (err) {
+        reject(new Error(err && err.code === 1
+          ? '位置情報の利用が許可されていません。スマホの設定でLINEの位置情報を許可してから、もう一度読み取ってください'
+          : '現在地を取得できませんでした。屋外や電波の良い場所で、もう一度読み取ってください'));
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    });
+  }
+
+  /** 現在地を添えてスタンプラリーのチェックインを送る（距離の判定はサーバー側） */
+  async function rallyCheckinHere(code, demoLocation) {
+    var loc = demoLocation;
+    if (!loc) {
+      UI.busy(true);
+      try {
+        loc = await getCurrentLocation();
+      } catch (e) {
+        UI.toast(e.message, 'error');
+        return null;
+      } finally {
+        UI.busy(false);
+      }
+    }
+    return run('rallyCheckin', { code: code, lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy || 0 });
   }
 
   // ---------------- アンケート / 投票 ----------------
@@ -457,7 +504,9 @@
       case 'reload': location.reload(); break;
       case 'share': share(); break;
       case 'scan-rally': scanRally(); break;
-      case 'demo-rally': run('rallyCheckin', { code: el.dataset.code }); break;
+      case 'demo-rally':
+        rallyCheckinHere(el.dataset.code, { lat: Number(el.dataset.lat), lng: Number(el.dataset.lng), accuracy: 10 });
+        break;
       case 'toggle-survey': toggleSurvey(el.dataset.id); break;
       case 'take-ticket': run('takeTicket'); break;
       case 'cancel-ticket':
@@ -632,7 +681,7 @@
         history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
         switchTab('rally');
         UI.busy(false);
-        await run('rallyCheckin', { code: rally });
+        await rallyCheckinHere(rally);
         UI.busy(true);
       }
 
