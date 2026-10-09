@@ -3,7 +3,9 @@
   'use strict';
   var cfg = window.APP_CONFIG || {};
   var esc = UI.esc;
-  var TABS = ['card', 'rally', 'vote', 'reception', 'link'];
+  var TABS = ['card', 'rally', 'vote', 'ticket', 'reserve', 'link'];
+  // 以前のリンク（?tab=reception）は整理券タブで開く
+  var TAB_ALIASES = { reception: 'ticket' };
   var POLL_MS = 20000;
 
   var app = {
@@ -71,6 +73,7 @@
   }
 
   function switchTab(tab) {
+    if (TAB_ALIASES[tab]) tab = TAB_ALIASES[tab];
     if (TABS.indexOf(tab) < 0) tab = 'card';
     app.tab = tab;
     document.querySelectorAll('.tab').forEach(function (s) { s.hidden = s.dataset.tab !== tab; });
@@ -285,14 +288,22 @@
         '<div class="panel-head"><h2>' + esc(title) + '</h2></div>' +
         '<div class="ticket-no"><small>あなたの番号</small><b>' + t.mine.no + '</b></div>' +
         '<div class="ticket-status">' + (called
-          ? 'お呼び出し中です！<br>受付までお越しください'
+          ? 'お呼び出し中です！<br>受付でこのQRコードを提示してください'
           : 'あなたの前に <b>' + t.ahead + '</b> 組お待ちです') + '</div>' +
-        '<div class="ticket-meta">現在の呼び出し番号 <b>' + serving + '</b></div>' +
+        (called
+          ? (t.mine.qr ? '<div class="qr-show" id="ticket-qr" role="img" aria-label="整理券の受付用QRコード"></div>'
+            : '<p class="muted center">受付で番号をお伝えください</p>')
+          : '<div class="ticket-meta">現在の呼び出し番号 <b>' + serving + '</b></div>' +
+            '<p class="note center">呼び出されると、受付用のQRコードがここに表示されます</p>') +
         '<button class="btn ghost block" data-act="cancel-ticket">整理券をキャンセル</button>' +
         '<p class="note center">この画面は自動で更新されます</p>' +
       '</div>';
     } else {
-      html = '<div class="panel">' +
+      html = (t.lastDone
+        ? '<div class="panel done-box"><b>整理券 ' + t.lastDone.no + ' 番の受付が完了しました</b>' +
+          '<span>' + (t.lastDone.doneAt ? UI.formatTime(t.lastDone.doneAt) + ' 受付' : '') + '</span></div>'
+        : '') +
+        '<div class="panel">' +
         '<div class="panel-head"><h2>' + esc(title) + '</h2></div>' +
         '<div class="stats"><div><small>現在の呼び出し番号</small><b>' + serving + '</b></div>' +
         '<div><small>お待ちの組数</small><b>' + t.waitingCount + '</b></div></div>' +
@@ -302,6 +313,8 @@
       '</div>';
     }
     $('#ticket-panel').innerHTML = html + friendNotice();
+    var qrEl = $('#ticket-qr');
+    if (qrEl) UI.qr(qrEl, t.mine.qr, 200);
   }
 
   // ---------------- 呼び出し通知のための友だち追加案内 ----------------
@@ -339,9 +352,22 @@
     var r = app.state.reservation, rc = app.config.reservation;
     var html = '<div class="panel"><div class="panel-head"><h2>' + esc(rc.title) + '</h2></div>';
     if (r.mine) {
-      html += '<div class="reserved"><small>ご予約内容</small><b>' + esc(r.mine.slotLabel) + '</b>' +
+      var checked = r.mine.status === 'checkedin';
+      html += '<ol class="steps-bar" aria-label="予約の状況">' +
+          '<li class="done"><i>✓</i><span>予約完了</span></li>' +
+          '<li class="' + (checked ? 'done' : 'current') + '"><i>' + (checked ? '✓' : '2') + '</i>' +
+            '<span>' + (checked ? '受付完了' : '未受付') + '</span></li>' +
+        '</ol>' +
+        '<div class="reserve-status ' + (checked ? 'is-done' : 'is-wait') + '">' +
+          (checked
+            ? '<b>受付完了</b><span>' + (r.mine.checkedInAt ? UI.formatTime(r.mine.checkedInAt) + ' に受付しました。' : '') + 'ご来場ありがとうございます。</span>'
+            : '<b>予約完了・未受付</b><span>来場したら、受付でこのQRコードを提示してください。</span>') +
+        '</div>' +
+        (!checked && r.mine.qr ? '<div class="qr-show" id="reserve-qr" role="img" aria-label="来場予約の受付用QRコード"></div>' : '') +
+        '<div class="reserved"><small>ご予約内容</small><b>' + esc(r.mine.slotLabel) + '</b>' +
         '<span>' + r.mine.people + ' 名 ／ 予約番号 ' + esc(r.mine.id) + '</span></div>' +
-        '<button class="btn ghost block" data-act="cancel-reservation" data-id="' + esc(r.mine.id) + '">予約をキャンセル</button>';
+        (checked ? '' : '<button class="btn ghost block" data-act="cancel-reservation" data-id="' + esc(r.mine.id) + '">予約をキャンセル</button>' +
+          '<p class="note center">受付が完了すると、この画面に自動で反映されます</p>');
     } else {
       var opts = '';
       for (var i = 1; i <= rc.maxPeople; i++) opts += '<option value="' + i + '">' + i + ' 名</option>';
@@ -355,6 +381,8 @@
       '<button class="btn primary block" type="submit">予約する</button></form>';
     }
     $('#reserve-panel').innerHTML = html + '</div>';
+    var qrEl = $('#reserve-qr');
+    if (qrEl) UI.qr(qrEl, r.mine.qr, 200);
   }
 
   // ---------------- 外部ID連携 ----------------
@@ -384,21 +412,32 @@
   var polling = false;
   async function poll() {
     if (document.hidden || polling || !isReady) return;
-    // サーバーの無料枠を節約するため、受付タブ表示中か整理券を持っているときだけ更新する
-    if (!(app.tab === 'reception' || app.state.ticket.mine)) return;
+    // サーバーの無料枠を節約するため、整理券タブ表示中・整理券を持っているとき・未受付の予約を表示中だけ更新する
+    var myRes = app.state.reservation.mine;
+    var watchReserve = app.tab === 'reserve' && myRes && myRes.status === 'reserved';
+    if (!(app.tab === 'ticket' || app.state.ticket.mine || watchReserve)) return;
     polling = true;
     try {
       var prev = app.state.ticket.mine;
+      var prevRes = myRes;
       var data = await Api.call('state', {});
       setState(data.state);
-      // 入力フォームを含む画面は書き換えない
+      // 入力フォームを含む画面は書き換えない（予約は予約済みのときだけフォームがない）
       renderCard();
       renderTicket();
       renderRally();
+      if (app.state.reservation.mine) renderReserve();
       var now = app.state.ticket.mine;
       if (prev && now && prev.status === 'waiting' && now.status === 'called') {
-        UI.toast(now.no + ' 番が呼ばれました！受付へお越しください', 'ok');
+        UI.toast(now.no + ' 番が呼ばれました！受付でQRコードを提示してください', 'ok');
         if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+      } else if (prev && !now && app.state.ticket.lastDone && app.state.ticket.lastDone.no === prev.no) {
+        UI.toast('整理券 ' + prev.no + ' 番の受付が完了しました', 'ok');
+      }
+      var nowRes = app.state.reservation.mine;
+      if (prevRes && nowRes && prevRes.status === 'reserved' && nowRes.status === 'checkedin') {
+        UI.toast('来場予約の受付が完了しました', 'ok');
+        if (navigator.vibrate) navigator.vibrate(200);
       }
     } catch (e) {
       /* 自動更新の失敗は次回に任せる */
@@ -462,7 +501,7 @@
     renderAll();
   }
 
-  /** ?tab=reception などで開くタブを指定（リッチメニューからのリンク用） */
+  /** ?tab=ticket・?tab=reserve などで開くタブを指定（リッチメニューからのリンク用） */
   function initialTab() {
     var params = new URLSearchParams(location.search);
     var saved = null;

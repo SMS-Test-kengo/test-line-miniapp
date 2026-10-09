@@ -5,7 +5,8 @@
   var esc = UI.esc;
   var params = new URLSearchParams(location.search);
   var REFRESH_MS = 10000;
-  var STATUS_LABEL = { waiting: '待機中', called: '呼出中', done: '完了', skipped: '不在' };
+  var STATUS_LABEL = { waiting: '待機中', called: '呼出中', done: '受付済み', skipped: '不在' };
+  var RES_STATUS_LABEL = { reserved: '未受付', checkedin: '受付完了' };
 
   // 管理画面は LIFF を使わない。API_URL 未設定か ?mock=1 ならデモモード
   Auth.mock = !cfg.API_URL || params.get('mock') === '1';
@@ -59,7 +60,7 @@
     current = name;
     document.querySelectorAll('.admin-tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.panel === name); });
     document.querySelectorAll('.admin-panel').forEach(function (p) { p.hidden = p.dataset.panel !== name; });
-    if (name !== 'stamps') stopScanner();
+    stopScanner(); // タブを切り替えたらカメラを止める
     load(name);
   }
 
@@ -160,8 +161,7 @@
         '<div class="stats"><div><small>今のカード</small><b>' + m.current + ' / ' + m.goal + '</b></div>' +
         '<div><small>累計スタンプ</small><b>' + m.stamps + '</b></div>' +
         '<div><small>使える特典</small><b>' + m.rewardsAvailable + '</b></div></div>' +
-        (m.ext ? '<p class="muted">外部ID連携：' + esc(m.ext.id) + (m.ext.name ? '（' + esc(m.ext.name) + '）' : '') + '</p>' : '') +
-        '<div class="btn-row">' +
+        (m.ext ? '<p class="muted">外部ID連携：' + esc(m.ext.id) + (m.ext.name ? '（' + esc(m.ext.name) + '）' : '') + '</p>' : '') +        '<div class="btn-row">' +
           [1, 2, 3].map(function (n) { return '<button class="btn primary" data-act="stamp" data-count="' + n + '">＋' + n + '</button>'; }).join('') +
         '</div>' +
         '<button class="btn block warn" data-act="use-reward"' + (m.rewardsAvailable ? '' : ' disabled') + '>特典を1回使用する</button>' +
@@ -182,19 +182,32 @@
     });
   }
 
-  async function startScanner() {
+  // ---------------- カメラでのQR読み取り（スタンプ・QR受付で共用） ----------------
+
+  var scannerEl = null;
+
+  /** readerId の場所でカメラを起動し、読み取るたびに onCode を呼ぶ */
+  async function startScanner(readerId, onCode) {
+    stopScanner();
     try {
       if (typeof Html5Qrcode === 'undefined') await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
-      $('#reader').hidden = false;
-      scanner = new Html5Qrcode('reader');
-      await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, function (text) {
-        stopScanner();
-        $('#member-form').memberNo.value = text;
-        findMember(text);
-      });
+      scannerEl = document.getElementById(readerId);
+      scannerEl.hidden = false;
+      var s = new Html5Qrcode(readerId);
+      scanner = s;
+      var config = { fps: 10, qrbox: 240 };
+      try {
+        // スマホは背面カメラ、PC は使えるカメラ（Webカメラ）が選ばれる
+        await s.start({ facingMode: 'environment' }, config, onCode);
+      } catch (e) {
+        var cams = await Html5Qrcode.getCameras();
+        if (!cams || !cams.length) throw e;
+        await s.start(cams[0].id, config, onCode);
+      }
+      updateScanToggle();
     } catch (e) {
       stopScanner();
-      UI.toast('カメラを起動できませんでした。会員番号を手入力してください', 'error');
+      UI.toast('カメラを起動できませんでした。カメラの使用を許可するか、コードを手入力してください', 'error');
     }
   }
 
@@ -202,10 +215,96 @@
     if (scanner) {
       var s = scanner;
       scanner = null;
-      s.stop().catch(function () {}).then(function () { s.clear(); });
+      s.stop().catch(function () {}).then(function () { try { s.clear(); } catch (e) { /* ignore */ } });
     }
-    var r = $('#reader');
-    if (r) r.hidden = true;
+    if (scannerEl) { scannerEl.hidden = true; scannerEl = null; }
+    updateScanToggle();
+  }
+
+  function startMemberScanner() {
+    startScanner('member-reader', function (text) {
+      stopScanner();
+      $('#member-form').memberNo.value = text;
+      findMember(text);
+    });
+  }
+
+  // ---------------- QR受付（整理券・来場予約） ----------------
+
+  var scanBusy = false;
+  var lastScan = { code: '', at: 0 };
+
+  function updateScanToggle() {
+    var b = $('#scan-toggle');
+    if (b) b.textContent = scanner && scannerEl && scannerEl.id === 'scan-reader' ? 'カメラを止める' : 'カメラを起動する';
+  }
+
+  function primeAudio() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx && !beep.ctx) beep.ctx = new Ctx();
+      if (beep.ctx && beep.ctx.resume) beep.ctx.resume();
+    } catch (e) { /* ignore */ }
+  }
+
+  /** 読み取り結果を短い音で知らせる（成功は高い音、エラーは低い音） */
+  function beep(ok) {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      beep.ctx = beep.ctx || new Ctx();
+      var o = beep.ctx.createOscillator(), g = beep.ctx.createGain();
+      o.frequency.value = ok ? 1046 : 220;
+      g.gain.value = 0.08;
+      o.connect(g); g.connect(beep.ctx.destination);
+      o.start(); o.stop(beep.ctx.currentTime + (ok ? 0.12 : 0.35));
+    } catch (e) { /* 音が出せなくても受付は続ける */ }
+  }
+
+  async function onScanCode(code) {
+    code = String(code || '').trim();
+    if (!code || scanBusy) return;
+    // 同じQRを読み続けても二重に処理しない
+    if (code === lastScan.code && Date.now() - lastScan.at < 5000) return;
+    lastScan = { code: code, at: Date.now() };
+    scanBusy = true;
+    try { if (scanner && scanner.pause) scanner.pause(true); } catch (e) { /* ignore */ }
+    try {
+      var data = await Api.call('adminScan', { code: code });
+      showScanResult(data, null);
+    } catch (e) {
+      showScanResult(null, e.message);
+      if (/管理キー|管理者/.test(e.message)) logout();
+    } finally {
+      setTimeout(function () {
+        scanBusy = false;
+        try { if (scanner && scanner.resume) scanner.resume(); } catch (e) { /* ignore */ }
+      }, 1800);
+    }
+  }
+
+  function showScanResult(d, error) {
+    var kind = error ? 'error' : d.result === 'ok' ? 'ok' : 'already';
+    var title = error || d.title;
+    var lines = [];
+    if (d) {
+      if (d.kind === 'reservation') lines.push(esc(d.slotLabel) + ' ／ ' + d.people + ' 名 ／ 予約番号 ' + esc(d.id));
+      if (d.name) lines.push(esc(d.name) + ' 様');
+      if (d.at) lines.push(UI.formatTime(d.at) + ' に受付済み');
+    }
+    var label = error ? '受付できません' : d.kind === 'ticket' ? '整理券' : '来場予約';
+    $('#scan-result').innerHTML = '<div class="panel scan-card ' + kind + '">' +
+      '<span class="scan-kind">' + label + '</span><b>' + esc(title) + '</b>' +
+      lines.map(function (l) { return '<span>' + l + '</span>'; }).join('') + '</div>';
+    beep(kind === 'ok');
+    var log = $('#scan-log');
+    if (log.querySelector('.muted')) log.innerHTML = '';
+    var li = document.createElement('li');
+    li.className = kind;
+    li.innerHTML = '<time>' + UI.formatTime(new Date().toISOString()) + '</time><span>' + esc(title) +
+      (d && d.name ? '（' + esc(d.name) + ' 様）' : '') + '</span>';
+    log.insertBefore(li, log.firstChild);
+    while (log.children.length > 30) log.removeChild(log.lastChild);
   }
 
   // ---------------- 集計 ----------------
@@ -226,13 +325,21 @@
     if (!data) return;
     panel('reservations').innerHTML = data.slots.map(function (s) {
       var used = s.capacity - s.remaining;
+      var checked = s.reservations.filter(function (r) { return r.status === 'checkedin'; });
+      var checkedPeople = checked.reduce(function (a, r) { return a + r.people; }, 0);
       var list = s.reservations.map(function (r) {
-        return '<tr><td>' + esc(r.displayName || '－') + '<small>' + esc(r.memberNo) + '</small></td><td>' + r.people + ' 名</td><td><small>' + esc(r.id) + '</small></td></tr>';
+        var st = r.status === 'checkedin' ? 'checkedin' : 'reserved';
+        return '<tr class="rs-' + st + '"><td>' + esc(r.displayName || '－') + '<small>' + esc(r.memberNo) + '</small></td>' +
+          '<td>' + r.people + ' 名</td>' +
+          '<td><span class="status">' + RES_STATUS_LABEL[st] + '</span>' +
+            (r.checkedInAt ? '<small>' + UI.formatTime(r.checkedInAt) + '</small>' : '') + '</td>' +
+          '<td><small>' + esc(r.id) + '</small></td></tr>';
       }).join('');
-      return '<div class="panel"><div class="panel-head"><h2>' + esc(s.label) + '</h2><span class="pill">' + used + ' / ' + s.capacity + ' 名</span></div>' +
-        (list ? '<div class="table-wrap"><table class="table"><thead><tr><th>お名前</th><th>人数</th><th>予約番号</th></tr></thead><tbody>' + list + '</tbody></table></div>'
+      return '<div class="panel"><div class="panel-head"><h2>' + esc(s.label) + '</h2>' +
+        '<span class="pill">受付 ' + checkedPeople + ' / 予約 ' + used + ' / 定員 ' + s.capacity + ' 名</span></div>' +
+        (list ? '<div class="table-wrap"><table class="table"><thead><tr><th>お名前</th><th>人数</th><th>受付</th><th>予約番号</th></tr></thead><tbody>' + list + '</tbody></table></div>'
           : '<p class="muted">予約はまだありません</p>') + '</div>';
-    }).join('');
+    }).join('') + '<p class="muted center">来場者の受付は「QR受付」タブで予約QRコードを読み取ります。<button class="btn small ghost" data-act="refresh">更新</button></p>';
   }
 
   // ---------------- ラリーQR ----------------
@@ -263,7 +370,8 @@
   var GUIDE_TARGETS = [
     { tab: '', title: 'ミニアプリを開く', text: 'LINEのカメラで読み取ってください' },
     { tab: 'card', title: '会員証・スタンプカード', text: '会員証を表示してスタンプを集めよう' },
-    { tab: 'reception', title: '受付・整理券', text: '整理券の発行・予約はこちら' },
+    { tab: 'ticket', title: '整理券', text: '整理券の発行・呼び出しの確認はこちら' },
+    { tab: 'reserve', title: '来場予約', text: '来場の予約と受付用QRコードはこちら' },
     { tab: 'vote', title: '投票・アンケート', text: 'あなたの声を聞かせてください' },
     { tab: 'rally', title: 'スタンプラリー', text: '会場のQRを集めて特典をゲット' }
   ];
@@ -315,7 +423,12 @@
         run('adminCallNext').then(function (d) { if (d) renderTickets(d); });
         break;
       case 'ticket': ticketOp(el.dataset.op, Number(el.dataset.no)); break;
-      case 'scan-member': scanner ? stopScanner() : startScanner(); break;
+      case 'scan-member': scanner ? stopScanner() : startMemberScanner(); break;
+      case 'scan-qr':
+        if (scanner) { stopScanner(); break; }
+        primeAudio(); // ブラウザは操作の直後でないと音を出せないため、ここで準備しておく
+        startScanner('scan-reader', onScanCode);
+        break;
       case 'stamp': memberOp('adminAddStamp', { count: Number(el.dataset.count) }, el); break;
       case 'use-reward':
         if (confirm('特典を1回使用済みにしますか？')) memberOp('adminUseReward', {}, el);
@@ -332,6 +445,12 @@
   $('#master-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
     importMaster(ev.target);
+  });
+  $('#scan-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    lastScan = { code: '', at: 0 }; // 手入力は同じコードでも受け付ける
+    onScanCode(ev.target.code.value);
+    ev.target.code.value = '';
   });
   $('#member-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
