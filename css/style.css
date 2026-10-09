@@ -325,6 +325,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); out
 .st-done, .st-skipped { color: var(--muted); }
 .reader { margin-top: 12px; border-radius: 10px; overflow: hidden; max-width: 520px; margin-inline: auto; }
 .scan-manual { margin-top: 12px; }
+.mono { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.here { font-size: 13px; margin: 8px 0 0; word-break: break-all; }
 .scan-card { display: flex; flex-direction: column; gap: 4px; border-left: 6px solid var(--line); }
 .scan-card b { font-size: 20px; line-height: 1.4; }
 .scan-card span { font-size: 14px; color: var(--muted); }
