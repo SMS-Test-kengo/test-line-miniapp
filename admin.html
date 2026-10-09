@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>管理画面</title>
-  <link rel="stylesheet" href="css/style.css?v=20261014">
+  <link rel="stylesheet" href="css/style.css?v=20261015">
 </head>
 <body class="admin-page">
   <header class="app-header">
@@ -27,6 +27,7 @@
     <div id="admin" hidden>
       <nav class="admin-tabs">
         <button data-panel="tickets" class="active">呼び出し</button>
+        <button data-panel="scan">QR受付</button>
         <button data-panel="stamps">スタンプ</button>
         <button data-panel="surveys">集計</button>
         <button data-panel="reservations">予約</button>
@@ -37,6 +38,24 @@
 
       <section data-panel="tickets" class="admin-panel"></section>
 
+      <section data-panel="scan" class="admin-panel" hidden>
+        <div class="panel">
+          <h2>QR受付（整理券・来場予約）</h2>
+          <p class="muted">利用者のミニアプリに表示された受付用QRコードを読み取ると、整理券は「受付済み」に、来場予約は「受付完了」になります。続けて何人でも読み取れます。</p>
+          <button class="btn primary block" data-act="scan-qr" id="scan-toggle">カメラを起動する</button>
+          <div id="scan-reader" class="reader" hidden></div>
+          <form id="scan-form" class="inline-form scan-manual">
+            <input name="code" placeholder="読み取れない場合はコードを入力（TKT:… / RSV:…）" autocomplete="off" required>
+            <button class="btn ghost" type="submit">受付</button>
+          </form>
+        </div>
+        <div id="scan-result" aria-live="polite"></div>
+        <div class="panel">
+          <div class="panel-head"><h2>この画面での受付履歴</h2></div>
+          <ul id="scan-log" class="scan-log"><li class="muted">まだ受付していません</li></ul>
+        </div>
+      </section>
+
       <section data-panel="stamps" class="admin-panel" hidden>
         <div class="panel">
           <h2>スタンプ付与・特典使用</h2>
@@ -45,7 +64,7 @@
             <button class="btn primary" type="submit">検索</button>
           </form>
           <button class="btn ghost block" data-act="scan-member">カメラで会員証QRを読み取る</button>
-          <div id="reader" class="reader" hidden></div>
+          <div id="member-reader" class="reader" hidden></div>
         </div>
         <div id="member-result"></div>
       </section>
@@ -72,9 +91,9 @@
   <div id="loading" class="loading"><div class="spinner"></div></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/config.js?v=20261014"></script>
-  <script src="js/ui.js?v=20261014"></script>
-  <script src="js/api.js?v=20261014"></script>
-  <script src="js/admin.js?v=20261014"></script>
+  <script src="js/config.js?v=20261015"></script>
+  <script src="js/ui.js?v=20261015"></script>
+  <script src="js/api.js?v=20261015"></script>
+  <script src="js/admin.js?v=20261015"></script>
 </body>
 </html>

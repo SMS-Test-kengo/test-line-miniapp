@@ -7,7 +7,7 @@
   <title>ミニアプリ</title>
   <link rel="preconnect" href="https://static.line-scdn.net">
   <link rel="preconnect" href="https://hdxai43ioeltpkbddzujgbomea0fypoi.lambda-url.ap-northeast-1.on.aws">
-  <link rel="stylesheet" href="css/style.css?v=20261014">
+  <link rel="stylesheet" href="css/style.css?v=20261015">
 </head>
 <body>
   <header class="app-header">
@@ -34,8 +34,10 @@
     </section>
     <section id="tab-rally" class="tab" data-tab="rally" hidden></section>
     <section id="tab-vote" class="tab" data-tab="vote" hidden></section>
-    <section id="tab-reception" class="tab" data-tab="reception" hidden>
+    <section id="tab-ticket" class="tab" data-tab="ticket" hidden>
       <div id="ticket-panel"></div>
+    </section>
+    <section id="tab-reserve" class="tab" data-tab="reserve" hidden>
       <div id="reserve-panel"></div>
     </section>
     <section id="tab-link" class="tab" data-tab="link" hidden></section>
@@ -54,9 +56,13 @@
       <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
       <span>投票</span>
     </button>
-    <button data-tab="reception" role="tab" aria-selected="false">
+    <button data-tab="ticket" role="tab" aria-selected="false">
       <svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 5v12" stroke-dasharray="2 2"/></svg>
-      <span>受付</span>
+      <span>整理券</span>
+    </button>
+    <button data-tab="reserve" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7.5 14.5l2 2 4-4"/></svg>
+      <span>予約</span>
     </button>
     <button data-tab="link" role="tab" aria-selected="false">
       <svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
@@ -70,9 +76,9 @@
   <script id="liff-sdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js" async onerror="window.__liffSdkError=true"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- ?v= はファイル更新時に数字を変える（スマホに残った古いファイルと混ざらないようにするため） -->
-  <script src="js/config.js?v=20261014"></script>
-  <script src="js/ui.js?v=20261014"></script>
-  <script src="js/api.js?v=20261014"></script>
-  <script src="js/app.js?v=20261014"></script>
+  <script src="js/config.js?v=20261015"></script>
+  <script src="js/ui.js?v=20261015"></script>
+  <script src="js/api.js?v=20261015"></script>
+  <script src="js/app.js?v=20261015"></script>
 </body>
 </html>
