@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>管理画面</title>
-  <link rel="stylesheet" href="css/style.css?v=20261017">
+  <link rel="stylesheet" href="css/style.css?v=20261018">
 </head>
 <body class="admin-page">
   <header class="app-header">
@@ -25,21 +25,20 @@
     </section>
 
     <div id="admin" hidden>
-      <nav class="admin-tabs">
-        <button data-panel="tickets" class="active">呼び出し</button>
-        <button data-panel="scan">QR受付</button>
+      <!-- 横スクロールせずに全メニューが見えるよう、画面幅に合わせて折り返す -->
+      <nav class="admin-tabs" aria-label="管理メニュー">
+        <button data-panel="tickets" class="active">整理券</button>
         <button data-panel="stamps">スタンプ</button>
-        <button data-panel="surveys">集計</button>
+        <button data-panel="surveys">投票</button>
         <button data-panel="reservations">予約</button>
-        <button data-panel="rally">ラリーQR</button>
         <button data-panel="guide">案内QR</button>
-        <button data-panel="master">会員マスタ</button>
+        <button data-panel="master">ID連携</button>
         <button data-panel="data">データ管理</button>
       </nav>
 
-      <section data-panel="tickets" class="admin-panel"></section>
-
-      <section data-panel="scan" class="admin-panel" hidden>
+      <!-- 整理券：呼び出し → QR受付 → 本日の整理券一覧 -->
+      <section data-panel="tickets" class="admin-panel">
+        <div id="tickets-call"></div>
         <div class="panel">
           <h2>QR受付（整理券・来場予約）</h2>
           <p class="muted">利用者のミニアプリに表示された受付用QRコードを読み取ると、整理券は「受付済み」に、来場予約は「受付完了」になります。続けて何人でも読み取れます。</p>
@@ -49,16 +48,18 @@
             <input name="code" placeholder="読み取れない場合はコードを入力（TKT:… / RSV:…）" autocomplete="off" required>
             <button class="btn ghost" type="submit">受付</button>
           </form>
+          <div id="scan-result" aria-live="polite"></div>
+          <details class="scan-history">
+            <summary>この画面での受付履歴</summary>
+            <ul id="scan-log" class="scan-log"><li class="muted">まだ受付していません</li></ul>
+          </details>
         </div>
-        <div id="scan-result" aria-live="polite"></div>
-        <div class="panel">
-          <div class="panel-head"><h2>この画面での受付履歴</h2></div>
-          <ul id="scan-log" class="scan-log"><li class="muted">まだ受付していません</li></ul>
-        </div>
+        <div id="tickets-list"></div>
       </section>
 
+      <!-- スタンプ：スタンプ付与・特典使用 → スタンプラリー -->
       <section data-panel="stamps" class="admin-panel" hidden>
-        <div class="panel">
+        <div class="panel no-print">
           <h2>スタンプ付与・特典使用</h2>
           <form id="member-form" class="inline-form">
             <input name="memberNo" placeholder="会員番号（例: M12345678）" autocomplete="off" required>
@@ -67,12 +68,12 @@
           <button class="btn ghost block" data-act="scan-member">カメラで会員証QRを読み取る</button>
           <div id="member-reader" class="reader" hidden></div>
         </div>
-        <div id="member-result"></div>
+        <div id="member-result" class="no-print"></div>
+        <div id="rally-section"></div>
       </section>
 
       <section data-panel="surveys" class="admin-panel" hidden></section>
       <section data-panel="reservations" class="admin-panel" hidden></section>
-      <section data-panel="rally" class="admin-panel" hidden></section>
       <section data-panel="guide" class="admin-panel" hidden></section>
 
       <section data-panel="data" class="admin-panel" hidden>
@@ -118,9 +119,9 @@
   <div id="loading" class="loading"><div class="spinner"></div></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/config.js?v=20261017"></script>
-  <script src="js/ui.js?v=20261017"></script>
-  <script src="js/api.js?v=20261017"></script>
-  <script src="js/admin.js?v=20261017"></script>
+  <script src="js/config.js?v=20261018"></script>
+  <script src="js/ui.js?v=20261018"></script>
+  <script src="js/api.js?v=20261018"></script>
+  <script src="js/admin.js?v=20261018"></script>
 </body>
 </html>
