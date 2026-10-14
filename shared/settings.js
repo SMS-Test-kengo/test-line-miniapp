@@ -16,14 +16,17 @@ var APP_SETTINGS = {
   },
 
   // スタンプラリー（code は QR コードに埋め込む合言葉。推測されにくい文字列に変更してください）
+  // lat / lng はスポットの緯度・経度。QR を読み取った人の現在地が radiusMeters 以内のときだけスタンプを付けます。
+  // 座標は管理画面の「ラリーQR」タブの「現在地を取得」で調べられます。lat / lng を書かないスポットは距離を確認しません。
   rally: {
     title: 'スタンプラリー',
     rewardName: '限定ステッカー',
+    radiusMeters: 500,                // デバッグ用に広め。本番は 50〜100m 程度を推奨
     checkpoints: [
-      { id: 'cp1', name: 'エントランス', hint: '入口の大きな看板の横', code: 'RALLY-cp1-8kQ2vXa7' },
-      { id: 'cp2', name: '物販ブース', hint: 'グッズ売り場のレジ前', code: 'RALLY-cp2-Lm4pZ9tw' },
-      { id: 'cp3', name: 'フォトスポット', hint: 'パネル展示のエリア', code: 'RALLY-cp3-Qe7rN2bc' },
-      { id: 'cp4', name: 'カフェ', hint: 'コラボカフェのカウンター', code: 'RALLY-cp4-Hs5yT8jd' }
+      { id: 'cp1', name: 'エントランス', hint: '入口の大きな看板の横', code: 'RALLY-cp1-8kQ2vXa7', lat: 35.681236, lng: 139.767125 },
+      { id: 'cp2', name: '物販ブース', hint: 'グッズ売り場のレジ前', code: 'RALLY-cp2-Lm4pZ9tw', lat: 35.681236, lng: 139.767125 },
+      { id: 'cp3', name: 'フォトスポット', hint: 'パネル展示のエリア', code: 'RALLY-cp3-Qe7rN2bc', lat: 35.40525, lng: 139.46017 },
+      { id: 'cp4', name: 'カフェ', hint: 'コラボカフェのカウンター', code: 'RALLY-cp4-Hs5yT8jd', lat: 35.40525, lng: 139.46017 }
     ]
   },
 
@@ -59,7 +62,10 @@ var APP_SETTINGS = {
   ticket: {
     title: '受付整理券',
     open: true,                       // false にすると新規発行を停止
-    callMessage: '整理券番号 {no} 番のお客様、お待たせしました。受付までお越しください。'
+    // 呼び出し時に LINE 公式アカウントから送るメッセージ（{no}=番号、{url}=下の appUrl）
+    callMessage: '整理券番号 {no} 番のお客様、お待たせしました。受付までお越しのうえ、ミニアプリの受付用QRコードをご提示ください。\n\n整理券の確認はこちら\n{url}',
+    // メッセージに入れるミニアプリのURL（整理券タブを開く）。空ならURLの行は入りません
+    appUrl: 'https://miniapp.line.me/2011900624-jT8NGkeZ?tab=ticket'
   },
 
   // 予約（1人1件まで）
