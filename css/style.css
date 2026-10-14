@@ -92,7 +92,9 @@ a.btn { text-decoration: none; }
 .btn.ghost { background: transparent; border-color: var(--line); color: var(--text); }
 .btn.warn { background: var(--warn); color: #fff; }
 .btn.block { display: flex; width: 100%; margin-top: 12px; }
-.btn.small { min-height: 34px; padding: 4px 12px; font-size: 13px; }
+.btn.small { min-height: 34px; padding: 4px 12px; font-size: 13px; white-space: nowrap; }
+.app-header .btn { flex-shrink: 0; }
+.admin-page .app-header h1 { font-size: 16px; min-width: 0; }
 .btn.big { min-height: 60px; font-size: 18px; }
 .btn-row { display: flex; gap: 8px; margin-top: 12px; }
 .btn-row .btn { flex: 1; }
@@ -305,12 +307,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); out
 .admin-page { padding-bottom: 32px; }
 .admin-page main { max-width: 860px; }
 .admin-page .toast { bottom: 24px; }
-.admin-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+/* 管理メニュー：横スクロールさせず、画面幅に合わせて折り返す（スマホは4列×2段、PCは1段） */
+.admin-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px; margin-bottom: 14px; }
 .admin-tabs button {
-  flex-shrink: 0; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card);
-  font-weight: 700; cursor: pointer;
+  min-width: 0; min-height: 42px; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
+  font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer;
 }
+.admin-tabs button:hover { border-color: var(--text); }
 .admin-tabs button.active { background: var(--text); color: #fff; border-color: var(--text); }
+.scan-history { margin-top: 12px; }
+.scan-history summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); padding: 4px 0; }
+#scan-result .scan-card { margin: 12px 0 0; }
 .table-wrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th { text-align: left; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
