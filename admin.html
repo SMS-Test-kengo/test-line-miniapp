@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>管理画面</title>
-  <link rel="stylesheet" href="css/style.css?v=20261018">
+  <link rel="stylesheet" href="css/style.css?v=20261019">
 </head>
 <body class="admin-page">
   <header class="app-header">
@@ -40,18 +40,18 @@
       <section data-panel="tickets" class="admin-panel">
         <div id="tickets-call"></div>
         <div class="panel">
-          <h2>QR受付（整理券・来場予約）</h2>
-          <p class="muted">利用者のミニアプリに表示された受付用QRコードを読み取ると、整理券は「受付済み」に、来場予約は「受付完了」になります。続けて何人でも読み取れます。</p>
-          <button class="btn primary block" data-act="scan-qr" id="scan-toggle">カメラを起動する</button>
-          <div id="scan-reader" class="reader" hidden></div>
-          <form id="scan-form" class="inline-form scan-manual">
-            <input name="code" placeholder="読み取れない場合はコードを入力（TKT:… / RSV:…）" autocomplete="off" required>
+          <h2>QR受付（整理券）</h2>
+          <p class="muted">呼び出した人のミニアプリに表示された整理券のQRコードを読み取ると、その整理券が「受付済み」になります。続けて何人でも読み取れます。</p>
+          <button class="btn primary block" data-act="scan-qr" data-kind="ticket" id="scan-ticket-toggle">カメラを起動する</button>
+          <div id="scan-ticket-reader" class="reader" hidden></div>
+          <form id="scan-ticket-form" class="inline-form scan-manual" data-kind="ticket">
+            <input name="code" placeholder="読み取れない場合はコードを入力（TKT:…）" autocomplete="off" required>
             <button class="btn ghost" type="submit">受付</button>
           </form>
-          <div id="scan-result" aria-live="polite"></div>
+          <div id="scan-ticket-result" aria-live="polite"></div>
           <details class="scan-history">
             <summary>この画面での受付履歴</summary>
-            <ul id="scan-log" class="scan-log"><li class="muted">まだ受付していません</li></ul>
+            <ul id="scan-ticket-log" class="scan-log"><li class="muted">まだ受付していません</li></ul>
           </details>
         </div>
         <div id="tickets-list"></div>
@@ -73,7 +73,25 @@
       </section>
 
       <section data-panel="surveys" class="admin-panel" hidden></section>
-      <section data-panel="reservations" class="admin-panel" hidden></section>
+      <!-- 予約：QR受付 → 予約枠ごとの一覧 -->
+      <section data-panel="reservations" class="admin-panel" hidden>
+        <div class="panel">
+          <h2>QR受付（来場予約）</h2>
+          <p class="muted">来場した人のミニアプリに表示された来場予約のQRコードを読み取ると、その予約が「受付完了」になります。続けて何人でも読み取れます。</p>
+          <button class="btn primary block" data-act="scan-qr" data-kind="reservation" id="scan-reserve-toggle">カメラを起動する</button>
+          <div id="scan-reserve-reader" class="reader" hidden></div>
+          <form id="scan-reserve-form" class="inline-form scan-manual" data-kind="reservation">
+            <input name="code" placeholder="読み取れない場合はコードを入力（RSV:…）" autocomplete="off" required>
+            <button class="btn ghost" type="submit">受付</button>
+          </form>
+          <div id="scan-reserve-result" aria-live="polite"></div>
+          <details class="scan-history">
+            <summary>この画面での受付履歴</summary>
+            <ul id="scan-reserve-log" class="scan-log"><li class="muted">まだ受付していません</li></ul>
+          </details>
+        </div>
+        <div id="reservations-list"></div>
+      </section>
       <section data-panel="guide" class="admin-panel" hidden></section>
 
       <section data-panel="data" class="admin-panel" hidden>
@@ -119,9 +137,9 @@
   <div id="loading" class="loading"><div class="spinner"></div></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/config.js?v=20261018"></script>
-  <script src="js/ui.js?v=20261018"></script>
-  <script src="js/api.js?v=20261018"></script>
-  <script src="js/admin.js?v=20261018"></script>
+  <script src="js/config.js?v=20261019"></script>
+  <script src="js/ui.js?v=20261019"></script>
+  <script src="js/api.js?v=20261019"></script>
+  <script src="js/admin.js?v=20261019"></script>
 </body>
 </html>
