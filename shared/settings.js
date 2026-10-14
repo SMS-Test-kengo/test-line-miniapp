@@ -25,8 +25,8 @@ var APP_SETTINGS = {
     checkpoints: [
       { id: 'cp1', name: 'エントランス', hint: '入口の大きな看板の横', code: 'RALLY-cp1-8kQ2vXa7', lat: 35.681236, lng: 139.767125 },
       { id: 'cp2', name: '物販ブース', hint: 'グッズ売り場のレジ前', code: 'RALLY-cp2-Lm4pZ9tw', lat: 35.681236, lng: 139.767125 },
-      { id: 'cp3', name: 'フォトスポット', hint: 'パネル展示のエリア', code: 'RALLY-cp3-Qe7rN2bc', lat: 35.40525, lng: 139.46017 },
-      { id: 'cp4', name: 'カフェ', hint: 'コラボカフェのカウンター', code: 'RALLY-cp4-Hs5yT8jd', lat: 35.40525, lng: 139.46017 }
+      { id: 'cp3', name: 'フォトスポット', hint: 'パネル展示のエリア', code: 'RALLY-cp3-Qe7rN2bc', lat: 35.665767, lng: 139.731411 },
+      { id: 'cp4', name: 'カフェ', hint: 'コラボカフェのカウンター', code: 'RALLY-cp4-Hs5yT8jd', lat: 35.665767, lng: 139.731411 }
     ]
   },
 
