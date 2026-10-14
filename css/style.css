@@ -325,6 +325,15 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--green); out
 .st-done, .st-skipped { color: var(--muted); }
 .reader { margin-top: 12px; border-radius: 10px; overflow: hidden; max-width: 520px; margin-inline: auto; }
 .scan-manual { margin-top: 12px; }
+.btn.danger { background: var(--danger); color: #fff; }
+.danger-zone { border: 1px solid #f3c2c4; }
+.pill-warn { background: #ffecec; color: var(--danger); }
+.reset-targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 10px 0 4px; }
+.reset-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.reset-item input { width: 18px; height: 18px; accent-color: var(--danger); margin: 0; }
+.reset-item span { flex: 1; font-weight: 700; font-size: 14px; }
+.reset-item b { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.reset-item:has(input:checked) { border-color: var(--danger); background: #fff5f5; }
 .mono { font-family: ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .here { font-size: 13px; margin: 8px 0 0; word-break: break-all; }
 .scan-card { display: flex; flex-direction: column; gap: 4px; border-left: 6px solid var(--line); }
