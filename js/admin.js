@@ -66,9 +66,9 @@
 
   function load(name) {
     if (name === 'tickets') return loadTickets();
+    if (name === 'stamps') return loadRally();
     if (name === 'surveys') return loadSurveys();
     if (name === 'reservations') return loadReservations();
-    if (name === 'rally') return loadRally();
     if (name === 'guide') return renderGuide();
     if (name === 'master') return loadMaster();
     if (name === 'data') return loadDataSummary();
@@ -161,13 +161,15 @@
         '<td><span class="status">' + (STATUS_LABEL[t.status] || t.status) + '</span></td>' +
         '<td class="acts">' + acts + '</td></tr>';
     }).join('');
-    panel('tickets').innerHTML =
+    // 呼び出し・一覧だけを書き換え、間にある QR受付（カメラ）はそのまま残す
+    $('#tickets-call').innerHTML =
       '<div class="panel">' +
         '<div class="stats"><div><small>現在の呼び出し番号</small><b>' + (d.nowServing == null ? '－' : d.nowServing) + '</b></div>' +
         '<div><small>お待ちの組数</small><b>' + d.waitingCount + '</b></div></div>' +
         '<button class="btn primary block big" data-act="call-next"' + (d.waitingCount ? '' : ' disabled') + '>次の番号を呼ぶ</button>' +
         (d.open ? '' : '<p class="muted center">整理券の新規発行は停止中です（設定 ticket.open）</p>') +
-      '</div>' +
+      '</div>';
+    $('#tickets-list').innerHTML =
       '<div class="panel"><div class="panel-head"><h2>本日の整理券（' + esc(d.date) + '）</h2>' +
         '<button class="btn small ghost" data-act="refresh">更新</button></div>' +
         (rows ? '<div class="table-wrap"><table class="table"><thead><tr><th>番号</th><th>お名前</th><th>状態</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
@@ -376,7 +378,7 @@
         '<span class="pill">受付 ' + checkedPeople + ' / 予約 ' + used + ' / 定員 ' + s.capacity + ' 名</span></div>' +
         (list ? '<div class="table-wrap"><table class="table"><thead><tr><th>お名前</th><th>人数</th><th>受付</th><th>予約番号</th></tr></thead><tbody>' + list + '</tbody></table></div>'
           : '<p class="muted">予約はまだありません</p>') + '</div>';
-    }).join('') + '<p class="muted center">来場者の受付は「QR受付」タブで予約QRコードを読み取ります。<button class="btn small ghost" data-act="refresh">更新</button></p>';
+    }).join('') + '<p class="muted center">来場者の受付は「整理券」タブの QR受付 で予約QRコードを読み取ります。<button class="btn small ghost" data-act="refresh">更新</button></p>';
   }
 
   // ---------------- ラリーQR ----------------
@@ -389,7 +391,7 @@
   async function loadRally() {
     var data = await run('adminRallyCodes');
     if (!data) return;
-    var p = panel('rally');
+    var p = $('#rally-section');
     p.innerHTML =
       '<div class="panel no-print"><div class="panel-head"><h2>スタンプラリー</h2><span class="pill">コンプリート ' + data.completedCount + ' 人</span></div>' +
         '<p class="muted">各スポットに掲示するQRコードです。印刷して設置してください。' +
