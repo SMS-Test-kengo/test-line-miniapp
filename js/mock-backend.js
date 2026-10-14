@@ -38,6 +38,11 @@ function createMockBackend() {
         },
         update: function (name, row, patch) {
           Object.keys(patch).forEach(function (k) { row[k] = patch[k] == null ? '' : String(patch[k]); });
+        },
+        remove: function (name, row) {
+          var list = this.rows(name);
+          var i = list.indexOf(row);
+          if (i >= 0) list.splice(i, 1);
         }
       },
       settings: APP_SETTINGS,

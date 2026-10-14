@@ -71,6 +71,43 @@
     if (name === 'rally') return loadRally();
     if (name === 'guide') return renderGuide();
     if (name === 'master') return loadMaster();
+    if (name === 'data') return loadDataSummary();
+  }
+
+  // ---------------- データ管理（デバッグ用の削除） ----------------
+
+  async function loadDataSummary() {
+    $('#demo-reset').hidden = !Auth.mock;
+    var data = await run('adminDataSummary');
+    if (!data) return;
+    $('#reset-state').textContent = data.allowReset ? '削除できます' : '削除は無効';
+    $('#reset-state').className = 'pill' + (data.allowReset ? ' pill-warn' : '');
+    $('#reset-targets').innerHTML = Object.keys(data.labels).map(function (k) {
+      return '<label class="reset-item"><input type="checkbox" name="target" value="' + esc(k) + '">' +
+        '<span>' + esc(data.labels[k]) + '</span><b>' + data.counts[k] + ' 件</b></label>';
+    }).join('') +
+      (data.allowReset ? '' : '<p class="muted">settings.js の debug.allowDataReset を true にすると削除できます。</p>');
+    document.querySelectorAll('.danger-zone .btn.danger').forEach(function (b) { b.disabled = !data.allowReset; });
+  }
+
+  async function resetData(form) {
+    var targets = Array.prototype.map.call(form.querySelectorAll('input[name="target"]:checked'), function (c) { return c.value; });
+    if (!targets.length) { UI.toast('削除するデータを選んでください', 'error'); return; }
+    if (form.confirm.value.trim() !== '削除') { UI.toast('確認のため「削除」と入力してください', 'error'); return; }
+    var names = targets.map(function (t) {
+      return form.querySelector('input[value="' + t + '"]').parentNode.querySelector('span').textContent;
+    });
+    if (!confirm(names.join('、') + ' を削除します。元に戻せません。よろしいですか？')) return;
+    var data = await run('adminResetData', { targets: targets, confirm: '削除' });
+    if (data) { form.reset(); loadDataSummary(); }
+  }
+
+  async function resetMember(form) {
+    var no = form.memberNo.value.trim();
+    if (form.confirm.value.trim() !== '削除') { UI.toast('確認のため「削除」と入力してください', 'error'); return; }
+    if (!confirm('会員番号 ' + no + ' の人のデータをすべて削除します。元に戻せません。よろしいですか？')) return;
+    var data = await run('adminResetMember', { memberNo: no, confirm: '削除' });
+    if (data) { form.reset(); loadDataSummary(); }
   }
 
   // ---------------- 会員マスタ（外部ID連携） ----------------
@@ -461,6 +498,15 @@
         break;
       case 'print': window.print(); break;
       case 'get-location': showHere(); break;
+      case 'reset-demo':
+        if (confirm('このブラウザのデモデータをすべて消して初期化します。よろしいですか？')) {
+          Api.resetDemo().then(function () {
+            try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('miniapp_cache_v1:') === 0) localStorage.removeItem(k); }); } catch (e) { /* ignore */ }
+            UI.toast('デモデータを初期化しました', 'ok');
+            loadDataSummary();
+          });
+        }
+        break;
       case 'copy-url': copyUrl(el.dataset.url); break;
     }
   });
@@ -472,6 +518,14 @@
   $('#master-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
     importMaster(ev.target);
+  });
+  $('#reset-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    resetData(ev.target);
+  });
+  $('#reset-member-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    resetMember(ev.target);
   });
   $('#scan-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
