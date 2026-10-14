@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>管理画面</title>
-  <link rel="stylesheet" href="css/style.css?v=20261016">
+  <link rel="stylesheet" href="css/style.css?v=20261017">
 </head>
 <body class="admin-page">
   <header class="app-header">
@@ -34,6 +34,7 @@
         <button data-panel="rally">ラリーQR</button>
         <button data-panel="guide">案内QR</button>
         <button data-panel="master">会員マスタ</button>
+        <button data-panel="data">データ管理</button>
       </nav>
 
       <section data-panel="tickets" class="admin-panel"></section>
@@ -74,6 +75,32 @@
       <section data-panel="rally" class="admin-panel" hidden></section>
       <section data-panel="guide" class="admin-panel" hidden></section>
 
+      <section data-panel="data" class="admin-panel" hidden>
+        <div class="panel danger-zone">
+          <div class="panel-head"><h2>データの削除（デバッグ用）</h2><span class="pill" id="reset-state">－</span></div>
+          <p class="muted">テストで作ったデータを種類ごとに削除します。<b>削除したデータは元に戻せません。</b>「会員（全員）」を選ぶと、会員にひもづく整理券・予約・ラリー・回答・スタンプ履歴もまとめて削除します。</p>
+          <form id="reset-form">
+            <div id="reset-targets" class="reset-targets"><p class="muted">読み込み中…</p></div>
+            <label class="field"><span>確認のため「削除」と入力してください</span><input name="confirm" autocomplete="off" placeholder="削除"></label>
+            <button class="btn danger block" type="submit">選んだデータを削除する</button>
+          </form>
+        </div>
+        <div class="panel danger-zone">
+          <h2>1人分のデータを削除</h2>
+          <p class="muted">会員番号の人の会員情報と、その人の整理券・予約・ラリー・回答・スタンプ履歴をまとめて削除します。次にミニアプリを開くと、新しい会員として登録されます（会員番号も変わります）。</p>
+          <form id="reset-member-form">
+            <label class="field"><span>会員番号</span><input name="memberNo" placeholder="M12345678" autocomplete="off" required></label>
+            <label class="field"><span>確認のため「削除」と入力してください</span><input name="confirm" autocomplete="off" placeholder="削除"></label>
+            <button class="btn danger block" type="submit">この会員のデータを削除する</button>
+          </form>
+        </div>
+        <div class="panel" id="demo-reset" hidden>
+          <h2>デモデータの初期化</h2>
+          <p class="muted">デモモードで、このブラウザに保存したデータをすべて消して最初の状態に戻します。</p>
+          <button class="btn ghost block" data-act="reset-demo">デモデータを初期化する</button>
+        </div>
+      </section>
+
       <section data-panel="master" class="admin-panel" hidden>
         <div class="panel">
           <div class="panel-head"><h2>外部ID連携の会員マスタ</h2><span class="pill" id="master-count">－ 件</span></div>
@@ -91,9 +118,9 @@
   <div id="loading" class="loading"><div class="spinner"></div></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/config.js?v=20261016"></script>
-  <script src="js/ui.js?v=20261016"></script>
-  <script src="js/api.js?v=20261016"></script>
-  <script src="js/admin.js?v=20261016"></script>
+  <script src="js/config.js?v=20261017"></script>
+  <script src="js/ui.js?v=20261017"></script>
+  <script src="js/api.js?v=20261017"></script>
+  <script src="js/admin.js?v=20261017"></script>
 </body>
 </html>
