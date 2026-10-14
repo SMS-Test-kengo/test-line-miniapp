@@ -268,14 +268,32 @@
     });
   }
 
-  // ---------------- QR受付（整理券・来場予約） ----------------
+  // ---------------- QR受付（整理券タブ・予約タブにそれぞれ1つ） ----------------
 
-  var scanBusy = false;
+  // 種類ごとの画面部品と、受付後に更新する一覧
+  var SCANS = {
+    ticket: { reader: 'scan-ticket-reader', toggle: 'scan-ticket-toggle', result: 'scan-ticket-result',
+      log: 'scan-ticket-log', refresh: function () { loadTickets(true); } },
+    reservation: { reader: 'scan-reserve-reader', toggle: 'scan-reserve-toggle', result: 'scan-reserve-result',
+      log: 'scan-reserve-log', refresh: function () { loadReservations(true); } }
+  };
+  var scanBusy = false;        // サーバーに問い合わせ中
+  var cameraPausedUntil = 0;   // カメラで読み取った直後は少し止めて、同じ人を続けて読まないようにする
   var lastScan = { code: '', at: 0 };
 
   function updateScanToggle() {
-    var b = $('#scan-toggle');
-    if (b) b.textContent = scanner && scannerEl && scannerEl.id === 'scan-reader' ? 'カメラを止める' : 'カメラを起動する';
+    Object.keys(SCANS).forEach(function (k) {
+      var b = document.getElementById(SCANS[k].toggle);
+      var on = scanner && scannerEl && scannerEl.id === SCANS[k].reader;
+      if (b) b.textContent = on ? 'カメラを止める' : 'カメラを起動する';
+    });
+  }
+
+  function startQrScanner(kind) {
+    startScanner(SCANS[kind].reader, function (code) {
+      if (Date.now() < cameraPausedUntil) return;
+      onScanCode(kind, code, true);
+    });
   }
 
   function primeAudio() {
@@ -300,29 +318,35 @@
     } catch (e) { /* 音が出せなくても受付は続ける */ }
   }
 
-  async function onScanCode(code) {
+  async function onScanCode(kind, code, fromCamera) {
     code = String(code || '').trim();
     if (!code || scanBusy) return;
-    // 同じQRを読み続けても二重に処理しない
-    if (code === lastScan.code && Date.now() - lastScan.at < 5000) return;
+    // カメラが同じQRを読み続けても二重に処理しない（手入力はいつでも受け付ける）
+    if (fromCamera && code === lastScan.code && Date.now() - lastScan.at < 5000) return;
     lastScan = { code: code, at: Date.now() };
     scanBusy = true;
-    try { if (scanner && scanner.pause) scanner.pause(true); } catch (e) { /* ignore */ }
-    try {
-      var data = await Api.call('adminScan', { code: code });
-      showScanResult(data, null);
-    } catch (e) {
-      showScanResult(null, e.message);
-      if (/管理キー|管理者/.test(e.message)) logout();
-    } finally {
+    if (fromCamera) {
+      cameraPausedUntil = Date.now() + 1800;
+      try { if (scanner && scanner.pause) scanner.pause(true); } catch (e) { /* ignore */ }
       setTimeout(function () {
-        scanBusy = false;
         try { if (scanner && scanner.resume) scanner.resume(); } catch (e) { /* ignore */ }
       }, 1800);
     }
+    try {
+      // kind を渡すと、サーバーはその種類のQRコードだけを受け付ける
+      var data = await Api.call('adminScan', { code: code, kind: kind });
+      showScanResult(kind, data, null);
+      SCANS[kind].refresh();
+    } catch (e) {
+      showScanResult(kind, null, e.message);
+      if (/管理キー|管理者/.test(e.message)) logout();
+    } finally {
+      scanBusy = false;
+    }
   }
 
-  function showScanResult(d, error) {
+  function showScanResult(scanKind, d, error) {
+    var ui = SCANS[scanKind];
     var kind = error ? 'error' : d.result === 'ok' ? 'ok' : 'already';
     var title = error || d.title;
     var lines = [];
@@ -332,11 +356,11 @@
       if (d.at) lines.push(UI.formatTime(d.at) + ' に受付済み');
     }
     var label = error ? '受付できません' : d.kind === 'ticket' ? '整理券' : '来場予約';
-    $('#scan-result').innerHTML = '<div class="panel scan-card ' + kind + '">' +
+    document.getElementById(ui.result).innerHTML = '<div class="panel scan-card ' + kind + '">' +
       '<span class="scan-kind">' + label + '</span><b>' + esc(title) + '</b>' +
       lines.map(function (l) { return '<span>' + l + '</span>'; }).join('') + '</div>';
     beep(kind === 'ok');
-    var log = $('#scan-log');
+    var log = document.getElementById(ui.log);
     if (log.querySelector('.muted')) log.innerHTML = '';
     var li = document.createElement('li');
     li.className = kind;
@@ -359,10 +383,11 @@
 
   // ---------------- 予約 ----------------
 
-  async function loadReservations() {
-    var data = await run('adminReservations');
+  async function loadReservations(quiet) {
+    var data = quiet ? await Api.call('adminReservations').catch(function () { return null; }) : await run('adminReservations');
     if (!data) return;
-    panel('reservations').innerHTML = data.slots.map(function (s) {
+    // 一覧だけを書き換え、上の QR受付（カメラ）はそのまま残す
+    $('#reservations-list').innerHTML = data.slots.map(function (s) {
       var used = s.capacity - s.remaining;
       var checked = s.reservations.filter(function (r) { return r.status === 'checkedin'; });
       var checkedPeople = checked.reduce(function (a, r) { return a + r.people; }, 0);
@@ -378,7 +403,7 @@
         '<span class="pill">受付 ' + checkedPeople + ' / 予約 ' + used + ' / 定員 ' + s.capacity + ' 名</span></div>' +
         (list ? '<div class="table-wrap"><table class="table"><thead><tr><th>お名前</th><th>人数</th><th>受付</th><th>予約番号</th></tr></thead><tbody>' + list + '</tbody></table></div>'
           : '<p class="muted">予約はまだありません</p>') + '</div>';
-    }).join('') + '<p class="muted center">来場者の受付は「整理券」タブの QR受付 で予約QRコードを読み取ります。<button class="btn small ghost" data-act="refresh">更新</button></p>';
+    }).join('') + '<p class="muted center"><button class="btn small ghost" data-act="refresh">一覧を更新</button></p>';
   }
 
   // ---------------- ラリーQR ----------------
@@ -492,7 +517,7 @@
       case 'scan-qr':
         if (scanner) { stopScanner(); break; }
         primeAudio(); // ブラウザは操作の直後でないと音を出せないため、ここで準備しておく
-        startScanner('scan-reader', onScanCode);
+        startQrScanner(el.dataset.kind);
         break;
       case 'stamp': memberOp('adminAddStamp', { count: Number(el.dataset.count) }, el); break;
       case 'use-reward':
@@ -529,11 +554,12 @@
     ev.preventDefault();
     resetMember(ev.target);
   });
-  $('#scan-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    lastScan = { code: '', at: 0 }; // 手入力は同じコードでも受け付ける
-    onScanCode(ev.target.code.value);
-    ev.target.code.value = '';
+  ['scan-ticket-form', 'scan-reserve-form'].forEach(function (id) {
+    document.getElementById(id).addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      onScanCode(ev.target.dataset.kind, ev.target.code.value, false);
+      ev.target.code.value = '';
+    });
   });
   $('#member-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
